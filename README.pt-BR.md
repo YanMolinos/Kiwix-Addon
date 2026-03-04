@@ -15,8 +15,6 @@ Este repositorio contem um add-on para Home Assistant OS que publica arquivos `.
    +-- icon.png
    +-- logo.png
    `-- zims/
-      +-- pt/
-      `-- en/
 ```
 
 Add-on incluido:
@@ -34,19 +32,8 @@ Add-on incluido:
 ## Onde colocar os arquivos ZIM
 
 - Caminho base recomendado: `/share/kiwix`
-- Portugues: `/share/kiwix/pt`
-- Ingles: `/share/kiwix/en`
-
-Configure `language` nas opcoes do add-on:
-
-- `pt`: carrega apenas arquivos em portugues.
-- `en`: carrega apenas arquivos em ingles.
-- `all`: carrega ambos e tambem arquivos `.zim` na raiz.
-
-Comportamento da pagina inicial:
-
-- `homepage: library` (padrao): mostra todos os ZIMs na pagina principal.
-- `homepage: default` + `default_zim`: abre direto um ZIM especifico.
+- Coloque todos os arquivos `.zim` nessa mesma pasta.
+- Nao separe por pasta de idioma.
 
 Opcional para testes:
 
@@ -55,6 +42,7 @@ Opcional para testes:
 ## Observacoes
 
 - Usa versao fixada da imagem: `ghcr.io/kiwix/kiwix-serve:3.8.2`.
+- O add-on gera `library.xml` com `kiwix-manage`, para a pagina inicial listar todos os ZIMs como catalogo.
 - Embutir ZIM grande na imagem Docker nao e recomendado (build lento e muito uso de armazenamento).
 - Ingress esta habilitado, entao o Kiwix aparece na barra lateral do Home Assistant.
 - Publicacao de porta externa esta desabilitada; use a interface do Home Assistant (barra lateral/Ingress).

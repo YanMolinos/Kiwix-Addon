@@ -4,8 +4,8 @@ Optionally place `.zim` files in this folder to bundle them into the add-on imag
 
 Examples:
 
-- `kiwix/zims/pt/wikipedia_pt_all_mini_2026-01.zim`
-- `kiwix/zims/en/wikipedia_en_all_mini_2026-01.zim`
+- `kiwix/zims/wikipedia_pt_all_mini_2026-01.zim`
+- `kiwix/zims/wikipedia_en_all_mini_2026-01.zim`
 
 Notes:
 

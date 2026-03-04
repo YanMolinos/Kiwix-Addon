@@ -7,8 +7,7 @@ Home Assistant OS add-on that serves `.zim` files through `kiwix-serve`.
 How to use:
 
 1. Configure `zim_dir` (default: `/share/kiwix`).
-2. Choose `language`: `pt`, `en`, or `all`.
-3. Copy `.zim` files to the language folders.
+2. Put all your `.zim` files in that same folder.
 4. Start the add-on.
 5. Open it from the Home Assistant sidebar (Ingress).
 
@@ -19,9 +18,6 @@ Optional test mode:
 Options:
 
 - `zim_dir` (string): directory containing `.zim` files.
-- `language` (string): served language (`all`, `pt`, `en`).
-- `homepage` (string, optional): `library` (default) or `default`.
-- `default_zim` (string, optional): exact file name (with `.zim`) used when `homepage=default`.
 - `username` (string, optional): basic auth username if supported by the `kiwix-serve` version.
 - `password` (password, optional): basic auth password if supported by the `kiwix-serve` version.
 
@@ -29,34 +25,25 @@ Configuration example:
 
 ```yaml
 zim_dir: /share/kiwix
-language: all
-homepage: library
-default_zim: ""
 username: ""
 password: ""
 ```
 
-Recommended language folder layout:
+Recommended folder layout:
 
 ```text
 /share/kiwix/
-+-- pt/
-|  `-- *.zim
-`-- en/
-   `-- *.zim
++-- wikipedia_en_all_maxi_2026-01.zim
++-- wikipedia_pt_all_maxi_2026-01.zim
+`-- ifixit_en_all_2025-12.zim
 ```
-
-Behavior:
-
-- `language: pt` loads only Portuguese folder files.
-- `language: en` loads only English folder files.
-- `language: all` loads `pt`, `en`, and root-level `.zim` files.
 
 Notes:
 
 - Docker base image is pinned to `ghcr.io/kiwix/kiwix-serve:3.8.2`.
-- The add-on waits until at least one `.zim` file exists in the selected language paths.
+- The add-on waits until at least one `.zim` file exists in `zim_dir`.
 - Bundled files in `/opt/kiwix/zims` are also considered.
+- The add-on auto-generates a `library.xml` with `kiwix-manage` so the main page can list all ZIM entries reliably.
 - If `--username/--password` is unavailable in your `kiwix-serve` build, the add-on starts without auth.
 - For large libraries, consider `/media/kiwix`.
 - `init: false` is required because the upstream Kiwix image already uses s6 as PID 1.
@@ -70,8 +57,7 @@ Add-on para Home Assistant OS que publica arquivos `.zim` usando `kiwix-serve`.
 Como usar:
 
 1. Configure `zim_dir` (padrao: `/share/kiwix`).
-2. Escolha `language`: `pt`, `en` ou `all`.
-3. Copie arquivos `.zim` para as pastas de idioma.
+2. Coloque todos os arquivos `.zim` nessa mesma pasta.
 4. Inicie o add-on.
 5. Abra pela barra lateral do Home Assistant (Ingress).
 
@@ -82,9 +68,6 @@ Modo opcional para testes:
 Opcoes:
 
 - `zim_dir` (string): diretorio com arquivos `.zim`.
-- `language` (string): idioma servido (`all`, `pt`, `en`).
-- `homepage` (string, opcional): `library` (padrao) ou `default`.
-- `default_zim` (string, opcional): nome exato do arquivo (com `.zim`) usado quando `homepage=default`.
 - `username` (string, opcional): usuario para auth basica, se suportado pela versao do `kiwix-serve`.
 - `password` (password, opcional): senha para auth basica, se suportado pela versao do `kiwix-serve`.
 
@@ -92,34 +75,25 @@ Exemplo de configuracao:
 
 ```yaml
 zim_dir: /share/kiwix
-language: all
-homepage: library
-default_zim: ""
 username: ""
 password: ""
 ```
 
-Estrutura recomendada de pastas:
+Estrutura recomendada:
 
 ```text
 /share/kiwix/
-+-- pt/
-|  `-- *.zim
-`-- en/
-   `-- *.zim
++-- wikipedia_en_all_maxi_2026-01.zim
++-- wikipedia_pt_all_maxi_2026-01.zim
+`-- ifixit_en_all_2025-12.zim
 ```
-
-Comportamento:
-
-- `language: pt` carrega apenas arquivos da pasta em portugues.
-- `language: en` carrega apenas arquivos da pasta em ingles.
-- `language: all` carrega `pt`, `en` e `.zim` na raiz.
 
 Notas:
 
 - A imagem base do Docker esta fixada em `ghcr.io/kiwix/kiwix-serve:3.8.2`.
-- O add-on aguarda ate existir pelo menos um arquivo `.zim` nos caminhos do idioma selecionado.
+- O add-on aguarda ate existir pelo menos um arquivo `.zim` em `zim_dir`.
 - Arquivos embutidos em `/opt/kiwix/zims` tambem sao considerados.
+- O add-on gera automaticamente `library.xml` com `kiwix-manage` para a pagina principal listar todos os ZIMs de forma consistente.
 - Se `--username/--password` nao estiver disponivel na sua versao do `kiwix-serve`, o add-on inicia sem auth.
 - Para bibliotecas grandes, considere usar `/media/kiwix`.
 - `init: false` e necessario porque a imagem upstream do Kiwix ja usa s6 como PID 1.

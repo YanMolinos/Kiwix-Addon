@@ -4,8 +4,8 @@ Opcionalmente coloque arquivos `.zim` nesta pasta para embutir no build da image
 
 Exemplos:
 
-- `kiwix/zims/pt/wikipedia_pt_all_mini_2026-01.zim`
-- `kiwix/zims/en/wikipedia_en_all_mini_2026-01.zim`
+- `kiwix/zims/wikipedia_pt_all_mini_2026-01.zim`
+- `kiwix/zims/wikipedia_en_all_mini_2026-01.zim`
 
 Notas:
 

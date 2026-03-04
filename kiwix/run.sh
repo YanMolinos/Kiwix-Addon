@@ -5,6 +5,8 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
+LIBRARY_FILE="/data/library.xml"
+ZIM_LIST_FILE="/tmp/kiwix-zims.txt"
 
 read_json_string() {
   key="$1"
@@ -23,35 +25,11 @@ read_json_string() {
 }
 
 ZIM_DIR="$(read_json_string "zim_dir" "/share/kiwix")"
-LANGUAGE="$(read_json_string "language" "all")"
-HOMEPAGE="$(read_json_string "homepage" "library")"
-DEFAULT_ZIM="$(read_json_string "default_zim" "")"
 PORT="8080"
 USERNAME="$(read_json_string "username" "")"
 PASSWORD="$(read_json_string "password" "")"
 
-LANGUAGE="$(printf '%s' "${LANGUAGE}" | tr '[:upper:]' '[:lower:]')"
-case "${LANGUAGE}" in
-  all|pt|en) ;;
-  *)
-    echo "[Kiwix] Invalid language '${LANGUAGE}'. Using 'all'. / Idioma invalido '${LANGUAGE}'. Usando 'all'."
-    LANGUAGE="all"
-    ;;
-esac
-
-HOMEPAGE="$(printf '%s' "${HOMEPAGE}" | tr '[:upper:]' '[:lower:]')"
-case "${HOMEPAGE}" in
-  library|default) ;;
-  *)
-    echo "[Kiwix] Invalid homepage '${HOMEPAGE}'. Using 'library'. / Homepage invalida '${HOMEPAGE}'. Usando 'library'."
-    HOMEPAGE="library"
-    ;;
-esac
-
 echo "[Kiwix] ZIM_DIR: ${ZIM_DIR}"
-echo "[Kiwix] LANGUAGE: ${LANGUAGE}"
-echo "[Kiwix] HOMEPAGE: ${HOMEPAGE}"
-echo "[Kiwix] DEFAULT_ZIM: ${DEFAULT_ZIM}"
 echo "[Kiwix] PORT: ${PORT}"
 
 if [ ! -d "${ZIM_DIR}" ]; then
@@ -59,45 +37,25 @@ if [ ! -d "${ZIM_DIR}" ]; then
   mkdir -p "${ZIM_DIR}"
 fi
 
-if [ "${LANGUAGE}" = "all" ] || [ "${LANGUAGE}" = "pt" ]; then
-  mkdir -p "${ZIM_DIR}/pt"
-fi
+collect_zim_files() {
+  : > "${ZIM_LIST_FILE}"
 
-if [ "${LANGUAGE}" = "all" ] || [ "${LANGUAGE}" = "en" ]; then
-  mkdir -p "${ZIM_DIR}/en"
-fi
+  if [ -d "${ZIM_DIR}" ]; then
+    find "${ZIM_DIR}" -type f -name '*.zim' -print >> "${ZIM_LIST_FILE}" 2>/dev/null || true
+  fi
 
-iter_candidate_dirs() {
-  case "${LANGUAGE}" in
-    pt)
-      printf '%s\n' "${ZIM_DIR}/pt"
-      printf '%s\n' "${BUNDLED_ZIM_DIR}/pt"
-      ;;
-    en)
-      printf '%s\n' "${ZIM_DIR}/en"
-      printf '%s\n' "${BUNDLED_ZIM_DIR}/en"
-      ;;
-    all)
-      printf '%s\n' "${ZIM_DIR}/pt"
-      printf '%s\n' "${ZIM_DIR}/en"
-      printf '%s\n' "${ZIM_DIR}"
-      printf '%s\n' "${BUNDLED_ZIM_DIR}/pt"
-      printf '%s\n' "${BUNDLED_ZIM_DIR}/en"
-      printf '%s\n' "${BUNDLED_ZIM_DIR}"
-      ;;
-  esac
+  if [ -d "${BUNDLED_ZIM_DIR}" ]; then
+    find "${BUNDLED_ZIM_DIR}" -type f -name '*.zim' -print >> "${ZIM_LIST_FILE}" 2>/dev/null || true
+  fi
+
+  if [ -s "${ZIM_LIST_FILE}" ]; then
+    sort -u "${ZIM_LIST_FILE}" -o "${ZIM_LIST_FILE}" || true
+  fi
 }
 
 has_any_zim() {
-  while IFS= read -r dir; do
-    [ -d "${dir}" ] || continue
-    for zim in "${dir}"/*.zim; do
-      [ -e "${zim}" ] && return 0
-    done
-  done <<EOF
-$(iter_candidate_dirs)
-EOF
-  return 1
+  collect_zim_files
+  [ -s "${ZIM_LIST_FILE}" ]
 }
 
 detect_kiwix_serve_bin() {
@@ -125,6 +83,34 @@ detect_kiwix_serve_bin() {
   return 1
 }
 
+detect_kiwix_manage_bin() {
+  if command -v kiwix-manage >/dev/null 2>&1; then
+    command -v kiwix-manage
+    return 0
+  fi
+
+  for candidate in /usr/local/bin/kiwix-manage /usr/bin/kiwix-manage /bin/kiwix-manage; do
+    if [ -x "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+build_library_xml() {
+  kiwix_manage_bin="$1"
+  rm -f "${LIBRARY_FILE}"
+
+  while IFS= read -r zim; do
+    [ -n "${zim}" ] || continue
+    "${kiwix_manage_bin}" "${LIBRARY_FILE}" add "${zim}" >/dev/null 2>&1 || {
+      echo "[Kiwix] WARNING: Failed to add ZIM to library: ${zim}"
+    }
+  done < "${ZIM_LIST_FILE}"
+}
+
 # Wait for at least one .zim file (mounted or bundled) before starting kiwix-serve.
 # Aguarda pelo menos um arquivo .zim (montado ou embutido) antes de iniciar o kiwix-serve.
 while :; do
@@ -132,11 +118,12 @@ while :; do
     break
   fi
 
-  echo "[Kiwix] No .zim found for language=${LANGUAGE}. Waiting 30s... / Nenhum .zim encontrado para language=${LANGUAGE}. Aguardando 30s..."
+  echo "[Kiwix] No .zim found in ${ZIM_DIR}. Waiting 30s... / Nenhum .zim encontrado em ${ZIM_DIR}. Aguardando 30s..."
   sleep 30
 done
 
 KIWIX_SERVE_BIN="$(detect_kiwix_serve_bin || true)"
+KIWIX_MANAGE_BIN="$(detect_kiwix_manage_bin || true)"
 
 if [ -z "${KIWIX_SERVE_BIN}" ]; then
   echo "[Kiwix] ERROR: kiwix-serve binary not found. PATH=${PATH}"
@@ -148,7 +135,6 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
 fi
 
 set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
-selected_zim_count=0
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
@@ -158,29 +144,23 @@ if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   fi
 fi
 
-while IFS= read -r dir; do
-  [ -d "${dir}" ] || continue
-  for zim in "${dir}"/*.zim; do
-    [ -e "${zim}" ] || continue
-    if [ "${HOMEPAGE}" = "default" ] && [ -n "${DEFAULT_ZIM}" ]; then
-      base="$(basename "${zim}")"
-      if [ "${base}" = "${DEFAULT_ZIM}" ]; then
-        set -- "$@" "${zim}"
-        selected_zim_count=$((selected_zim_count + 1))
-      fi
-    else
+if [ -n "${KIWIX_MANAGE_BIN}" ]; then
+  build_library_xml "${KIWIX_MANAGE_BIN}"
+  if [ -s "${LIBRARY_FILE}" ]; then
+    set -- "$@" --library "${LIBRARY_FILE}"
+  else
+    echo "[Kiwix] WARNING: library.xml generation produced an empty file, falling back to direct ZIM list."
+    while IFS= read -r zim; do
+      [ -n "${zim}" ] || continue
       set -- "$@" "${zim}"
-      selected_zim_count=$((selected_zim_count + 1))
-    fi
-  done
-done <<EOF
-$(iter_candidate_dirs)
-EOF
-
-if [ "${HOMEPAGE}" = "default" ] && [ -n "${DEFAULT_ZIM}" ] && [ "${selected_zim_count}" -eq 0 ]; then
-  echo "[Kiwix] ERROR: default_zim='${DEFAULT_ZIM}' nao encontrado nos diretorios selecionados."
-  sleep 20
-  exit 1
+    done < "${ZIM_LIST_FILE}"
+  fi
+else
+  echo "[Kiwix] WARNING: kiwix-manage not found, using direct ZIM list mode."
+  while IFS= read -r zim; do
+    [ -n "${zim}" ] || continue
+    set -- "$@" "${zim}"
+  done < "${ZIM_LIST_FILE}"
 fi
 
 echo "[Kiwix] Starting: $* / Iniciando: $*"
