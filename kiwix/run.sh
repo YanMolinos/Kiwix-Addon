@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.12"
+SCRIPT_VERSION="1.1.13"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -220,6 +220,10 @@ http {
 
       sub_filter_once off;
       sub_filter_types *;
+      sub_filter 'type="root" href=""' 'type="root" href="\$ingress_path"';
+      sub_filter "type='root' href=''" "type='root' href='\$ingress_path'";
+      sub_filter 'type="root" href="/' 'type="root" href="\$ingress_path/';
+      sub_filter "type='root' href='/" "type='root' href='\$ingress_path/";
       sub_filter 'href="/' 'href="\$ingress_path/';
       sub_filter "href='/" "href='\$ingress_path/";
       sub_filter 'src="/' 'src="\$ingress_path/';
