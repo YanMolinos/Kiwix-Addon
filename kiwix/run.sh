@@ -101,15 +101,13 @@ detect_kiwix_manage_bin() {
 
 detect_ingress_root() {
   # Prefer bashio helper when available in Home Assistant base images.
-  if [ -f /usr/lib/bashio/bashio.sh ]; then
+  if [ -f /usr/lib/bashio/bashio.sh ] || [ -f /usr/lib/bashio/bashio ]; then
     # shellcheck disable=SC1091
-    . /usr/lib/bashio/bashio.sh >/dev/null 2>&1 || true
-    if command -v bashio::addon.ingress_entry >/dev/null 2>&1; then
-      ingress_entry="$(bashio::addon.ingress_entry 2>/dev/null || true)"
-      if [ -n "${ingress_entry}" ] && [ "${ingress_entry}" != "null" ]; then
-        printf '%s' "${ingress_entry}"
-        return 0
-      fi
+    [ -f /usr/lib/bashio/bashio.sh ] && . /usr/lib/bashio/bashio.sh >/dev/null 2>&1 || true
+    ingress_entry="$(bashio::addon.ingress_entry 2>/dev/null || true)"
+    if [ -n "${ingress_entry}" ] && [ "${ingress_entry}" != "null" ]; then
+      printf '%s' "${ingress_entry}"
+      return 0
     fi
   fi
 
@@ -191,6 +189,9 @@ if [ -n "${INGRESS_ROOT}" ]; then
   esac
   echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
   set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
+else
+  echo "[Kiwix] WARNING: Ingress root not detected. CSS/assets can break in Home Assistant sidebar."
+  echo "[Kiwix] Debug env: INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' SUPERVISOR_TOKEN_SET='$( [ -n "${SUPERVISOR_TOKEN:-}" ] && echo yes || echo no )'"
 fi
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
