@@ -56,6 +56,7 @@ Notes:
 - Bundled files in `/opt/kiwix/zims` are also considered.
 - If `--username/--password` is unavailable in your `kiwix-serve` build, the add-on starts without auth.
 - For large libraries, consider `/media/kiwix`.
+- `init: false` is required because the upstream Kiwix image already uses s6 as PID 1.
 
 ## Portugues (PT-BR)
 
@@ -113,3 +114,4 @@ Notas:
 - Arquivos embutidos em `/opt/kiwix/zims` tambem sao considerados.
 - Se `--username/--password` nao estiver disponivel na sua versao do `kiwix-serve`, o add-on inicia sem auth.
 - Para bibliotecas grandes, considere usar `/media/kiwix`.
+- `init: false` e necessario porque a imagem upstream do Kiwix ja usa s6 como PID 1.
