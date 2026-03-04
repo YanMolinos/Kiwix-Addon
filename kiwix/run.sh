@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.22"
+SCRIPT_VERSION="1.1.23"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -240,7 +240,7 @@ EOF
       cat >> "${INDEX_FILE}" <<EOF
       <div class="card">
         <div class="name">${safe_name}</div>
-        <a class="btn" href="random?content=${book}">Open</a>
+        <a class="btn" href="content/${book}">Open</a>
       </div>
 EOF
     done < "${ZIM_LIST_FILE}"
