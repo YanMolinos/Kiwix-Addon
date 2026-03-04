@@ -2,11 +2,10 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.15"
+SCRIPT_VERSION="1.1.16"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
-LIBRARY_FILE="/data/library.xml"
 ZIM_LIST_FILE="/tmp/kiwix-zims.txt"
 NGINX_CONF_FILE="/tmp/nginx.conf"
 BACKEND_PORT="18080"
@@ -33,9 +32,10 @@ PORT="8080"
 USERNAME="$(read_json_string "username" "")"
 PASSWORD="$(read_json_string "password" "")"
 
+echo "[Kiwix] SCRIPT_VERSION: ${SCRIPT_VERSION}"
+echo "[Kiwix] Runtime UID:GID: $(id -u):$(id -g)"
 echo "[Kiwix] ZIM_DIR: ${ZIM_DIR}"
 echo "[Kiwix] PORT: ${PORT}"
-echo "[Kiwix] SCRIPT_VERSION: ${SCRIPT_VERSION}"
 
 if [ ! -d "${ZIM_DIR}" ]; then
   echo "[Kiwix] Directory ${ZIM_DIR} does not exist. Creating... / Diretorio ${ZIM_DIR} nao existe. Criando..."
@@ -88,46 +88,6 @@ detect_kiwix_serve_bin() {
   return 1
 }
 
-detect_kiwix_manage_bin() {
-  if command -v kiwix-manage >/dev/null 2>&1; then
-    command -v kiwix-manage
-    return 0
-  fi
-
-  for candidate in /usr/local/bin/kiwix-manage /usr/bin/kiwix-manage /bin/kiwix-manage; do
-    if [ -x "${candidate}" ]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-build_library_xml() {
-  kiwix_manage_bin="$1"
-  rm -f "${LIBRARY_FILE}"
-  library_add_successes=0
-  library_add_failures=0
-
-  while IFS= read -r zim; do
-    [ -n "${zim}" ] || continue
-    if "${kiwix_manage_bin}" "${LIBRARY_FILE}" add "${zim}" >/dev/null 2>&1; then
-      library_add_successes=$((library_add_successes + 1))
-    else
-      library_add_failures=$((library_add_failures + 1))
-      echo "[Kiwix] WARNING: Failed to add ZIM to library: ${zim}"
-    fi
-  done < "${ZIM_LIST_FILE}"
-
-  echo "[Kiwix] Library add summary: success=${library_add_successes} failed=${library_add_failures}"
-}
-
-library_has_entries() {
-  [ -s "${LIBRARY_FILE}" ] || return 1
-  grep -Eq "<(entry|book)\\b" "${LIBRARY_FILE}" 2>/dev/null
-}
-
 detect_nginx_bin() {
   if command -v nginx >/dev/null 2>&1; then
     command -v nginx
@@ -145,13 +105,11 @@ detect_nginx_bin() {
 }
 
 detect_ingress_prefix() {
-  # Preferred: HA add-on hostname style c1dce1c8-kiwix-offline -> c1dce1c8_kiwix_offline.
   if [ -n "${HOSTNAME:-}" ] && printf '%s' "${HOSTNAME}" | grep -q "-"; then
     printf '/api/hassio_ingress/%s' "$(printf '%s' "${HOSTNAME}" | tr '-' '_')"
     return 0
   fi
 
-  # Fallback: addon_<slug> style hostname.
   if [ -n "${HOSTNAME:-}" ]; then
     addon_slug="${HOSTNAME#addon_}"
     if [ "${addon_slug}" != "${HOSTNAME}" ] && [ -n "${addon_slug}" ]; then
@@ -160,7 +118,6 @@ detect_ingress_prefix() {
     fi
   fi
 
-  # Environment fallback if explicitly provided.
   for candidate in "${INGRESS_ENTRY:-}" "${INGRESS_PATH:-}" "${HASSIO_INGRESS:-}" "${HASSIO_INGRESS_ENTRY:-}" "${ADDON_INGRESS:-}"; do
     if [ -n "${candidate}" ]; then
       case "${candidate}" in
@@ -214,19 +171,15 @@ http {
       proxy_set_header Host \$host;
       proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto \$scheme;
+      proxy_set_header X-Forwarded-Prefix \$ingress_path;
       proxy_pass http://127.0.0.1:${BACKEND_PORT};
       proxy_redirect ~^(/.*)\$ \$ingress_path\$1;
       proxy_buffering off;
 
       sub_filter_once off;
       sub_filter_types *;
-      # In HA Ingress, nested iframe from /viewer can be blocked by browser policy.
-      # Force index.js card links to use /content/<book> instead of /viewer#<book>.
-      sub_filter " + \`/viewer#" " + \`/content/";
       sub_filter 'type="root" href=""' 'type="root" href="\$ingress_path"';
       sub_filter "type='root' href=''" "type='root' href='\$ingress_path'";
-      sub_filter 'type="root" href="/' 'type="root" href="\$ingress_path/';
-      sub_filter "type='root' href='/" "type='root' href='\$ingress_path/";
       sub_filter 'href="/' 'href="\$ingress_path/';
       sub_filter "href='/" "href='\$ingress_path/";
       sub_filter 'src="/' 'src="\$ingress_path/';
@@ -236,14 +189,16 @@ http {
       sub_filter 'content="/' 'content="\$ingress_path/';
       sub_filter "content='/" "content='\$ingress_path/";
       sub_filter 'url(/' 'url(\$ingress_path/';
+      sub_filter ' + "/' ' + "\$ingress_path/';
+      sub_filter " + '/" " + '\$ingress_path/";
+      sub_filter '"/' '"\$ingress_path/';
+      sub_filter "'/" "'\$ingress_path/";
     }
   }
 }
 EOF
 }
 
-# Wait for at least one .zim file (mounted or bundled) before starting kiwix-serve.
-# Aguarda pelo menos um arquivo .zim (montado ou embutido) antes de iniciar o kiwix-serve.
 while :; do
   if has_any_zim; then
     break
@@ -254,7 +209,6 @@ while :; do
 done
 
 KIWIX_SERVE_BIN="$(detect_kiwix_serve_bin || true)"
-KIWIX_MANAGE_BIN="$(detect_kiwix_manage_bin || true)"
 NGINX_BIN="$(detect_nginx_bin || true)"
 
 if [ -z "${KIWIX_SERVE_BIN}" ]; then
@@ -275,12 +229,8 @@ if [ -z "${NGINX_BIN}" ]; then
 fi
 
 echo "[Kiwix] Found kiwix-serve at: ${KIWIX_SERVE_BIN}"
-if [ -n "${KIWIX_MANAGE_BIN}" ]; then
-  echo "[Kiwix] Found kiwix-manage at: ${KIWIX_MANAGE_BIN}"
-else
-  echo "[Kiwix] WARNING: kiwix-manage not found."
-fi
 echo "[Kiwix] Found nginx at: ${NGINX_BIN}"
+
 INGRESS_PREFIX="$(detect_ingress_prefix || true)"
 if [ -n "${INGRESS_PREFIX}" ]; then
   echo "[Kiwix] INGRESS_PREFIX: ${INGRESS_PREFIX}"
@@ -289,34 +239,39 @@ else
   echo "[Kiwix] Debug ingress hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}'"
 fi
 
-set -- "${KIWIX_SERVE_BIN}" --port="${BACKEND_PORT}"
+set -- "${KIWIX_SERVE_BIN}" --port="${BACKEND_PORT}" --verbose
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
     set -- "$@" "--username=${USERNAME}" "--password=${PASSWORD}"
   else
-    echo "[Kiwix] This kiwix-serve version does not support --username/--password. / Esta versao do kiwix-serve nao suporta --username/--password."
+    echo "[Kiwix] WARNING: This kiwix-serve version does not support --username/--password."
   fi
 fi
 
-if [ -n "${KIWIX_MANAGE_BIN}" ]; then
-  build_library_xml "${KIWIX_MANAGE_BIN}"
-
-  if [ "${library_add_successes}" -gt 0 ] && library_has_entries; then
-    set -- "$@" --library "${LIBRARY_FILE}"
-  else
-    echo "[Kiwix] WARNING: library.xml is empty or invalid, falling back to direct ZIM list mode."
-    while IFS= read -r zim; do
-      [ -n "${zim}" ] || continue
-      set -- "$@" "${zim}"
-    done < "${ZIM_LIST_FILE}"
+zim_count=0
+while IFS= read -r zim; do
+  [ -n "${zim}" ] || continue
+  if [ ! -r "${zim}" ]; then
+    echo "[Kiwix] WARNING: ZIM file is not readable and will be skipped: ${zim}"
+    continue
   fi
-else
-  echo "[Kiwix] WARNING: kiwix-manage not found, using direct ZIM list mode."
-  while IFS= read -r zim; do
-    [ -n "${zim}" ] || continue
-    set -- "$@" "${zim}"
-  done < "${ZIM_LIST_FILE}"
+
+  file_size="$(wc -c < "${zim}" 2>/dev/null || echo 0)"
+  if [ "${file_size}" -le 0 ]; then
+    echo "[Kiwix] WARNING: ZIM file is empty and will be skipped: ${zim}"
+    continue
+  fi
+
+  set -- "$@" "${zim}"
+  zim_count=$((zim_count + 1))
+  echo "[Kiwix] Added ZIM ${zim_count}: ${zim}"
+done < "${ZIM_LIST_FILE}"
+
+if [ "${zim_count}" -eq 0 ]; then
+  echo "[Kiwix] ERROR: No readable .zim files found."
+  sleep 30
+  exit 1
 fi
 
 echo "[Kiwix] Starting backend: $* / Iniciando backend: $*"
@@ -330,6 +285,8 @@ if ! kill -0 "${KIWIX_PID}" 2>/dev/null; then
   sleep 30
   exit 1
 fi
+
+ps -o user=,pid=,args= -p "${KIWIX_PID}" 2>/dev/null | sed 's/^/[Kiwix] Backend process: /' || true
 
 write_nginx_conf
 echo "[Kiwix] Starting ingress proxy: ${NGINX_BIN} -c ${NGINX_CONF_FILE} (listen ${PORT} -> backend ${BACKEND_PORT})"
