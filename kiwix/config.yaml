@@ -1,5 +1,5 @@
 name: "Kiwix (Offline Wiki / Wiki Offline)"
-version: "1.0.8"
+version: "1.0.9"
 slug: "kiwix_offline"
 description: "Kiwix server for local ZIM files on Home Assistant OS / Servidor Kiwix para arquivos ZIM locais no Home Assistant OS."
 url: "https://github.com/yanmolinos/Kiwix-Addon"
@@ -20,10 +20,12 @@ map:
 options:
   zim_dir: "/share/kiwix"
   language: "all"
+  default_zim: ""
   username: ""
   password: ""
 schema:
   zim_dir: str
   language: str?
+  default_zim: str?
   username: str?
   password: password?

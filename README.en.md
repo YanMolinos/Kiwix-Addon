@@ -43,6 +43,8 @@ Set `language` in add-on options:
 - `en`: loads only English files.
 - `all`: loads both languages and also root-level `.zim` files.
 
+If you want to skip the "Library OPDS Feed" page, set `default_zim` with an exact file name (example: `ifixit_en_all_2025-12.zim`).
+
 Optional for tests:
 
 - Put `.zim` files in `kiwix/zims/` before build to bundle content into the image.

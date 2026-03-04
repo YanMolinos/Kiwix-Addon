@@ -43,6 +43,8 @@ Configure `language` nas opcoes do add-on:
 - `en`: carrega apenas arquivos em ingles.
 - `all`: carrega ambos e tambem arquivos `.zim` na raiz.
 
+Se quiser pular a tela "Library OPDS Feed", preencha `default_zim` com o nome exato do arquivo (exemplo: `ifixit_en_all_2025-12.zim`).
+
 Opcional para testes:
 
 - Coloque arquivos `.zim` em `kiwix/zims/` antes do build para embutir conteudo na imagem.

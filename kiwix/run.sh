@@ -24,6 +24,7 @@ read_json_string() {
 
 ZIM_DIR="$(read_json_string "zim_dir" "/share/kiwix")"
 LANGUAGE="$(read_json_string "language" "all")"
+DEFAULT_ZIM="$(read_json_string "default_zim" "")"
 PORT="8080"
 USERNAME="$(read_json_string "username" "")"
 PASSWORD="$(read_json_string "password" "")"
@@ -39,6 +40,7 @@ esac
 
 echo "[Kiwix] ZIM_DIR: ${ZIM_DIR}"
 echo "[Kiwix] LANGUAGE: ${LANGUAGE}"
+echo "[Kiwix] DEFAULT_ZIM: ${DEFAULT_ZIM}"
 echo "[Kiwix] PORT: ${PORT}"
 
 if [ ! -d "${ZIM_DIR}" ]; then
@@ -135,6 +137,7 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
 fi
 
 set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
+selected_zim_count=0
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
@@ -148,11 +151,26 @@ while IFS= read -r dir; do
   [ -d "${dir}" ] || continue
   for zim in "${dir}"/*.zim; do
     [ -e "${zim}" ] || continue
-    set -- "$@" "${zim}"
+    if [ -n "${DEFAULT_ZIM}" ]; then
+      base="$(basename "${zim}")"
+      if [ "${base}" = "${DEFAULT_ZIM}" ]; then
+        set -- "$@" "${zim}"
+        selected_zim_count=$((selected_zim_count + 1))
+      fi
+    else
+      set -- "$@" "${zim}"
+      selected_zim_count=$((selected_zim_count + 1))
+    fi
   done
 done <<EOF
 $(iter_candidate_dirs)
 EOF
+
+if [ -n "${DEFAULT_ZIM}" ] && [ "${selected_zim_count}" -eq 0 ]; then
+  echo "[Kiwix] ERROR: default_zim='${DEFAULT_ZIM}' nao encontrado nos diretorios selecionados."
+  sleep 20
+  exit 1
+fi
 
 echo "[Kiwix] Starting: $* / Iniciando: $*"
 exec "$@"
