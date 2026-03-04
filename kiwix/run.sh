@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.29"
+SCRIPT_VERSION="1.1.30"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -160,9 +160,6 @@ http {
     absolute_redirect off;
     port_in_redirect off;
     server_name_in_redirect off;
-    allow 172.30.32.2;
-    deny all;
-
     location = / {
       default_type text/html;
       root /tmp;
