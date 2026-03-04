@@ -11,7 +11,6 @@ How to use:
 3. Copy `.zim` files to the language folders.
 4. Start the add-on.
 5. Open it from the Home Assistant sidebar (Ingress).
-6. Optional direct URL: `http://IP_OF_HOME_ASSISTANT:8080`.
 
 Optional test mode:
 
@@ -21,7 +20,6 @@ Options:
 
 - `zim_dir` (string): directory containing `.zim` files.
 - `language` (string): served language (`all`, `pt`, `en`).
-- `port` (port): Kiwix HTTP port.
 - `username` (string, optional): basic auth username if supported by the `kiwix-serve` version.
 - `password` (password, optional): basic auth password if supported by the `kiwix-serve` version.
 
@@ -30,7 +28,6 @@ Configuration example:
 ```yaml
 zim_dir: /share/kiwix
 language: all
-port: 8080
 username: ""
 password: ""
 ```
@@ -59,6 +56,7 @@ Notes:
 - For large libraries, consider `/media/kiwix`.
 - `init: false` is required because the upstream Kiwix image already uses s6 as PID 1.
 - `ingress: true` exposes Kiwix inside Home Assistant sidebar.
+- This add-on does not publish an external host port; access is via Home Assistant UI.
 
 ## Portugues (PT-BR)
 
@@ -71,7 +69,6 @@ Como usar:
 3. Copie arquivos `.zim` para as pastas de idioma.
 4. Inicie o add-on.
 5. Abra pela barra lateral do Home Assistant (Ingress).
-6. URL direta opcional: `http://IP_DO_HOME_ASSISTANT:8080`.
 
 Modo opcional para testes:
 
@@ -81,7 +78,6 @@ Opcoes:
 
 - `zim_dir` (string): diretorio com arquivos `.zim`.
 - `language` (string): idioma servido (`all`, `pt`, `en`).
-- `port` (porta): porta HTTP do Kiwix.
 - `username` (string, opcional): usuario para auth basica, se suportado pela versao do `kiwix-serve`.
 - `password` (password, opcional): senha para auth basica, se suportado pela versao do `kiwix-serve`.
 
@@ -90,7 +86,6 @@ Exemplo de configuracao:
 ```yaml
 zim_dir: /share/kiwix
 language: all
-port: 8080
 username: ""
 password: ""
 ```
@@ -119,3 +114,4 @@ Notas:
 - Para bibliotecas grandes, considere usar `/media/kiwix`.
 - `init: false` e necessario porque a imagem upstream do Kiwix ja usa s6 como PID 1.
 - `ingress: true` publica o Kiwix dentro da barra lateral do Home Assistant.
+- Este add-on nao publica porta externa; o acesso e pela interface do Home Assistant.

@@ -52,3 +52,4 @@ Opcional para testes:
 - Usa versao fixada da imagem: `ghcr.io/kiwix/kiwix-serve:3.8.2`.
 - Embutir ZIM grande na imagem Docker nao e recomendado (build lento e muito uso de armazenamento).
 - Ingress esta habilitado, entao o Kiwix aparece na barra lateral do Home Assistant.
+- Publicacao de porta externa esta desabilitada; use a interface do Home Assistant (barra lateral/Ingress).

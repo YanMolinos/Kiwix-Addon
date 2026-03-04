@@ -52,3 +52,4 @@ Optional for tests:
 - Uses a pinned image version: `ghcr.io/kiwix/kiwix-serve:3.8.2`.
 - Embedding large ZIM files in the Docker image is not recommended (slow build, large storage usage).
 - Ingress is enabled, so Kiwix appears in the Home Assistant side panel.
+- External host port publishing is disabled; use Home Assistant UI (sidebar/Ingress).

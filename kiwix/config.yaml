@@ -1,5 +1,5 @@
 name: "Kiwix (Offline Wiki / Wiki Offline)"
-version: "1.0.2"
+version: "1.0.3"
 slug: "kiwix_offline"
 description: "Kiwix server for local ZIM files on Home Assistant OS / Servidor Kiwix para arquivos ZIM locais no Home Assistant OS."
 url: "https://github.com/yanmolinos/Kiwix-Addon"
@@ -14,22 +14,16 @@ ingress: true
 ingress_port: 8080
 panel_title: "Kiwix"
 panel_icon: mdi:book-open-page-variant
-ports:
-  8080/tcp: 8080
-ports_description:
-  8080/tcp: "Kiwix web interface / Interface web do Kiwix"
 map:
   - share:rw
   - media:rw
 options:
   zim_dir: "/share/kiwix"
   language: "all"
-  port: 8080
   username: ""
   password: ""
 schema:
   zim_dir: str
   language: str?
-  port: port
   username: str?
   password: password?

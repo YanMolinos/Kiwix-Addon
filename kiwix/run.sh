@@ -20,25 +20,9 @@ read_json_string() {
   printf '%s' "${value}"
 }
 
-read_json_number() {
-  key="$1"
-  default="$2"
-
-  if [ ! -f "${OPTIONS_FILE}" ]; then
-    printf '%s' "${default}"
-    return
-  fi
-
-  value="$(tr -d '\r\n' < "${OPTIONS_FILE}" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p")"
-  if [ -z "${value}" ]; then
-    value="${default}"
-  fi
-  printf '%s' "${value}"
-}
-
 ZIM_DIR="$(read_json_string "zim_dir" "/share/kiwix")"
 LANGUAGE="$(read_json_string "language" "all")"
-PORT="$(read_json_number "port" "8080")"
+PORT="8080"
 USERNAME="$(read_json_string "username" "")"
 PASSWORD="$(read_json_string "password" "")"
 
