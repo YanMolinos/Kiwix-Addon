@@ -50,6 +50,7 @@ Behavior:
 
 Notes:
 
+- `build_from` is pinned to `ghcr.io/kiwix/kiwix-serve:3.8.2` for all supported architectures.
 - The add-on waits until at least one `.zim` file exists in the selected language paths.
 - Bundled files in `/opt/kiwix/zims` are also considered.
 - If `--username/--password` is unavailable in your `kiwix-serve` build, the add-on starts without auth.
@@ -108,6 +109,7 @@ Comportamento:
 
 Notas:
 
+- `build_from` esta fixado em `ghcr.io/kiwix/kiwix-serve:3.8.2` para todas as arquiteturas suportadas.
 - O add-on aguarda ate existir pelo menos um arquivo `.zim` nos caminhos do idioma selecionado.
 - Arquivos embutidos em `/opt/kiwix/zims` tambem sao considerados.
 - Se `--username/--password` nao estiver disponivel na sua versao do `kiwix-serve`, o add-on inicia sem auth.
