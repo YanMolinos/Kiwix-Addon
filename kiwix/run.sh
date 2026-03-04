@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.13"
+SCRIPT_VERSION="1.1.14"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -220,6 +220,9 @@ http {
 
       sub_filter_once off;
       sub_filter_types *;
+      # In HA Ingress, nested iframe from /viewer can be blocked by browser policy.
+      # Open ZIM cards directly via /content/<book> instead of /viewer#<book>.
+      sub_filter 'const viewerLink = urlComponents.join('/') + `/viewer#${bookName}`;' 'const viewerLink = urlComponents.join('/') + `/content/${bookName}`;';
       sub_filter 'type="root" href=""' 'type="root" href="\$ingress_path"';
       sub_filter "type='root' href=''" "type='root' href='\$ingress_path'";
       sub_filter 'type="root" href="/' 'type="root" href="\$ingress_path/';
