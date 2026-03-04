@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.16"
+SCRIPT_VERSION="1.1.17"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -257,8 +257,7 @@ while IFS= read -r zim; do
     continue
   fi
 
-  file_size="$(wc -c < "${zim}" 2>/dev/null || echo 0)"
-  if [ "${file_size}" -le 0 ]; then
+  if [ ! -s "${zim}" ]; then
     echo "[Kiwix] WARNING: ZIM file is empty and will be skipped: ${zim}"
     continue
   fi
