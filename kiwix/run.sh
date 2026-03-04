@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.23"
+SCRIPT_VERSION="1.1.24"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -180,6 +180,9 @@ http {
       proxy_set_header X-Forwarded-Proto \$scheme;
       proxy_set_header X-Forwarded-Prefix \$ingress_path;
       proxy_pass http://127.0.0.1:${BACKEND_PORT};
+      proxy_redirect ~^/viewer#(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^https?://[^/]+/viewer#(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^https?://[^/]+(/.*)\$ \$ingress_path\$1;
       proxy_redirect ~^(/.*)\$ \$ingress_path\$1;
       proxy_buffering off;
 
