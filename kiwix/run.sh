@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.10"
+SCRIPT_VERSION="1.1.11"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -10,6 +10,7 @@ LIBRARY_FILE="/data/library.xml"
 ZIM_LIST_FILE="/tmp/kiwix-zims.txt"
 NGINX_CONF_FILE="/tmp/nginx.conf"
 BACKEND_PORT="18080"
+INGRESS_PREFIX=""
 
 read_json_string() {
   key="$1"
@@ -143,6 +144,41 @@ detect_nginx_bin() {
   return 1
 }
 
+detect_ingress_prefix() {
+  # Preferred: HA add-on hostname style c1dce1c8-kiwix-offline -> c1dce1c8_kiwix_offline.
+  if [ -n "${HOSTNAME:-}" ] && printf '%s' "${HOSTNAME}" | grep -q "-"; then
+    printf '/api/hassio_ingress/%s' "$(printf '%s' "${HOSTNAME}" | tr '-' '_')"
+    return 0
+  fi
+
+  # Fallback: addon_<slug> style hostname.
+  if [ -n "${HOSTNAME:-}" ]; then
+    addon_slug="${HOSTNAME#addon_}"
+    if [ "${addon_slug}" != "${HOSTNAME}" ] && [ -n "${addon_slug}" ]; then
+      printf '/api/hassio_ingress/%s' "${addon_slug}"
+      return 0
+    fi
+  fi
+
+  # Environment fallback if explicitly provided.
+  for candidate in "${INGRESS_ENTRY:-}" "${INGRESS_PATH:-}" "${HASSIO_INGRESS:-}" "${HASSIO_INGRESS_ENTRY:-}" "${ADDON_INGRESS:-}"; do
+    if [ -n "${candidate}" ]; then
+      case "${candidate}" in
+        /api/hassio_ingress/*)
+          printf '%s' "${candidate%/}"
+          return 0
+          ;;
+        api/hassio_ingress/*)
+          printf '/%s' "${candidate%/}"
+          return 0
+          ;;
+      esac
+    fi
+  done
+
+  return 1
+}
+
 write_nginx_conf() {
   cat > "${NGINX_CONF_FILE}" <<EOF
 worker_processes 1;
@@ -157,17 +193,22 @@ http {
   include /etc/nginx/mime.types;
   default_type application/octet-stream;
   sendfile on;
-  access_log /dev/stdout;
+  log_format ingress '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent" ingress="\$http_x_ingress_path"';
+  access_log /dev/stdout ingress;
 
   server {
     listen ${PORT};
     server_name _;
 
     location / {
-      set \$ingress_path \$http_x_ingress_path;
+      set \$ingress_path "${INGRESS_PREFIX}";
+      if (\$http_x_ingress_path != "") {
+        set \$ingress_path \$http_x_ingress_path;
+      }
 
       proxy_http_version 1.1;
       proxy_set_header Connection "";
+      proxy_set_header Accept-Encoding "";
       proxy_set_header Host \$host;
       proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto \$scheme;
@@ -176,11 +217,15 @@ http {
       proxy_buffering off;
 
       sub_filter_once off;
-      sub_filter_types text/html text/css application/javascript;
+      sub_filter_types *;
       sub_filter 'href="/' 'href="\$ingress_path/';
+      sub_filter "href='/" "href='\$ingress_path/";
       sub_filter 'src="/' 'src="\$ingress_path/';
+      sub_filter "src='/" "src='\$ingress_path/";
       sub_filter 'action="/' 'action="\$ingress_path/';
+      sub_filter "action='/" "action='\$ingress_path/";
       sub_filter 'content="/' 'content="\$ingress_path/';
+      sub_filter "content='/" "content='\$ingress_path/";
       sub_filter 'url(/' 'url(\$ingress_path/';
     }
   }
@@ -227,6 +272,13 @@ else
   echo "[Kiwix] WARNING: kiwix-manage not found."
 fi
 echo "[Kiwix] Found nginx at: ${NGINX_BIN}"
+INGRESS_PREFIX="$(detect_ingress_prefix || true)"
+if [ -n "${INGRESS_PREFIX}" ]; then
+  echo "[Kiwix] INGRESS_PREFIX: ${INGRESS_PREFIX}"
+else
+  echo "[Kiwix] WARNING: Could not detect ingress prefix; using header-only fallback."
+  echo "[Kiwix] Debug ingress hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}'"
+fi
 
 set -- "${KIWIX_SERVE_BIN}" --port="${BACKEND_PORT}"
 
