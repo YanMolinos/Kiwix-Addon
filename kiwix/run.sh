@@ -1,8 +1,8 @@
 #!/bin/sh
-set -eu
+set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.5"
+SCRIPT_VERSION="1.1.6"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -102,50 +102,22 @@ detect_kiwix_manage_bin() {
 }
 
 detect_ingress_root() {
-  # Prefer bashio helper when available in Home Assistant base images.
-  if [ -f /usr/lib/bashio/bashio.sh ] || [ -f /usr/lib/bashio/bashio ]; then
-    # shellcheck disable=SC1091
-    [ -f /usr/lib/bashio/bashio.sh ] && . /usr/lib/bashio/bashio.sh >/dev/null 2>&1 || true
-    ingress_entry="$(bashio::addon.ingress_entry 2>/dev/null || true)"
-    if [ -n "${ingress_entry}" ] && [ "${ingress_entry}" != "null" ]; then
-      printf '%s' "${ingress_entry}"
+  # Most reliable fallback on HA: container HOSTNAME is usually addon_<addon_slug>.
+  if [ -n "${HOSTNAME:-}" ]; then
+    addon_slug="${HOSTNAME#addon_}"
+    if [ "${addon_slug}" != "${HOSTNAME}" ] && [ -n "${addon_slug}" ]; then
+      printf '%s' "${addon_slug}"
       return 0
     fi
   fi
 
+  # Environment fallbacks if HOSTNAME does not follow addon_<slug>.
   for candidate in "${INGRESS_ENTRY:-}" "${INGRESS_PATH:-}" "${HASSIO_INGRESS:-}" "${HASSIO_INGRESS_ENTRY:-}" "${ADDON_INGRESS:-}"; do
     if [ -n "${candidate}" ]; then
       printf '%s' "${candidate}"
       return 0
     fi
   done
-
-  # Fallback: in Home Assistant, HOSTNAME is often addon_<addon_id>.
-  if [ -n "${HOSTNAME:-}" ]; then
-    addon_id="${HOSTNAME#addon_}"
-    if [ "${addon_id}" != "${HOSTNAME}" ] && [ -n "${addon_id}" ]; then
-      printf '%s' "${addon_id}"
-      return 0
-    fi
-    if [ "${addon_id}" = "${HOSTNAME}" ] && printf '%s' "${HOSTNAME}" | grep -q "_"; then
-      printf '%s' "${HOSTNAME}"
-      return 0
-    fi
-  fi
-
-  if [ -n "${SUPERVISOR_TOKEN:-}" ] && command -v curl >/dev/null 2>&1; then
-    response="$(curl -fsSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null || true)"
-    ingress_entry="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_entry\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
-    if [ -n "${ingress_entry}" ]; then
-      printf '%s' "${ingress_entry}"
-      return 0
-    fi
-    addon_slug="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"slug\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
-    if [ -n "${addon_slug}" ]; then
-      printf '%s' "${addon_slug}"
-      return 0
-    fi
-  fi
 
   return 1
 }
@@ -221,13 +193,20 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
   exit 1
 fi
 
-set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
+echo "[Kiwix] Found kiwix-serve at: ${KIWIX_SERVE_BIN}"
+if [ -n "${KIWIX_MANAGE_BIN}" ]; then
+  echo "[Kiwix] Found kiwix-manage at: ${KIWIX_MANAGE_BIN}"
+else
+  echo "[Kiwix] WARNING: kiwix-manage not found."
+fi
+
+set -- "${KIWIX_SERVE_BIN}" --address=0.0.0.0 --port="${PORT}"
 if [ -n "${INGRESS_ROOT}" ]; then
   echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
   set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
 else
   echo "[Kiwix] WARNING: Ingress root not detected. CSS/assets can break in Home Assistant sidebar."
-  echo "[Kiwix] Debug ingress raw='${RAW_INGRESS_ROOT:-}' hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}' SUPERVISOR_TOKEN_SET='$( [ -n "${SUPERVISOR_TOKEN:-}" ] && echo yes || echo no )'"
+  echo "[Kiwix] Debug ingress raw='${RAW_INGRESS_ROOT:-}' hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}'"
 fi
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
