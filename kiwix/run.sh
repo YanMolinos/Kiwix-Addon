@@ -100,8 +100,26 @@ detect_kiwix_manage_bin() {
 }
 
 detect_ingress_root() {
+  # Prefer bashio helper when available in Home Assistant base images.
+  if [ -f /usr/lib/bashio/bashio.sh ]; then
+    # shellcheck disable=SC1091
+    . /usr/lib/bashio/bashio.sh >/dev/null 2>&1 || true
+    if command -v bashio::addon.ingress_entry >/dev/null 2>&1; then
+      ingress_entry="$(bashio::addon.ingress_entry 2>/dev/null || true)"
+      if [ -n "${ingress_entry}" ] && [ "${ingress_entry}" != "null" ]; then
+        printf '%s' "${ingress_entry}"
+        return 0
+      fi
+    fi
+  fi
+
   if [ -n "${INGRESS_ENTRY:-}" ]; then
     printf '%s' "${INGRESS_ENTRY}"
+    return 0
+  fi
+
+  if [ -n "${INGRESS_PATH:-}" ]; then
+    printf '%s' "${INGRESS_PATH}"
     return 0
   fi
 
@@ -167,6 +185,10 @@ fi
 
 set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
 if [ -n "${INGRESS_ROOT}" ]; then
+  case "${INGRESS_ROOT}" in
+    */) ;;
+    *) INGRESS_ROOT="${INGRESS_ROOT}/" ;;
+  esac
   echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
   set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
 fi
