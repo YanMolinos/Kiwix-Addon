@@ -99,16 +99,46 @@ detect_kiwix_manage_bin() {
   return 1
 }
 
+detect_ingress_root() {
+  if [ -n "${INGRESS_ENTRY:-}" ]; then
+    printf '%s' "${INGRESS_ENTRY}"
+    return 0
+  fi
+
+  if [ -n "${SUPERVISOR_TOKEN:-}" ] && command -v curl >/dev/null 2>&1; then
+    response="$(curl -fsSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null || true)"
+    ingress_entry="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_entry\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
+    if [ -n "${ingress_entry}" ]; then
+      printf '%s' "${ingress_entry}"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 build_library_xml() {
   kiwix_manage_bin="$1"
   rm -f "${LIBRARY_FILE}"
+  library_add_successes=0
+  library_add_failures=0
 
   while IFS= read -r zim; do
     [ -n "${zim}" ] || continue
-    "${kiwix_manage_bin}" "${LIBRARY_FILE}" add "${zim}" >/dev/null 2>&1 || {
+    if "${kiwix_manage_bin}" "${LIBRARY_FILE}" add "${zim}" >/dev/null 2>&1; then
+      library_add_successes=$((library_add_successes + 1))
+    else
+      library_add_failures=$((library_add_failures + 1))
       echo "[Kiwix] WARNING: Failed to add ZIM to library: ${zim}"
-    }
+    fi
   done < "${ZIM_LIST_FILE}"
+
+  echo "[Kiwix] Library add summary: success=${library_add_successes} failed=${library_add_failures}"
+}
+
+library_has_entries() {
+  [ -s "${LIBRARY_FILE}" ] || return 1
+  grep -Eq "<(entry|book)\\b" "${LIBRARY_FILE}" 2>/dev/null
 }
 
 # Wait for at least one .zim file (mounted or bundled) before starting kiwix-serve.
@@ -124,6 +154,7 @@ done
 
 KIWIX_SERVE_BIN="$(detect_kiwix_serve_bin || true)"
 KIWIX_MANAGE_BIN="$(detect_kiwix_manage_bin || true)"
+INGRESS_ROOT="$(detect_ingress_root || true)"
 
 if [ -z "${KIWIX_SERVE_BIN}" ]; then
   echo "[Kiwix] ERROR: kiwix-serve binary not found. PATH=${PATH}"
@@ -135,6 +166,10 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
 fi
 
 set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
+if [ -n "${INGRESS_ROOT}" ]; then
+  echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
+  set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
+fi
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
@@ -146,10 +181,11 @@ fi
 
 if [ -n "${KIWIX_MANAGE_BIN}" ]; then
   build_library_xml "${KIWIX_MANAGE_BIN}"
-  if [ -s "${LIBRARY_FILE}" ]; then
+
+  if [ "${library_add_successes}" -gt 0 ] && library_has_entries; then
     set -- "$@" --library "${LIBRARY_FILE}"
   else
-    echo "[Kiwix] WARNING: library.xml generation produced an empty file, falling back to direct ZIM list."
+    echo "[Kiwix] WARNING: library.xml is empty or invalid, falling back to direct ZIM list mode."
     while IFS= read -r zim; do
       [ -n "${zim}" ] || continue
       set -- "$@" "${zim}"

@@ -44,6 +44,7 @@ Notes:
 - The add-on waits until at least one `.zim` file exists in `zim_dir`.
 - Bundled files in `/opt/kiwix/zims` are also considered.
 - The add-on auto-generates a `library.xml` with `kiwix-manage` so the main page can list all ZIM entries reliably.
+- The add-on auto-detects Home Assistant Ingress path and sets `urlRootLocation` so CSS/assets load correctly in sidebar mode.
 - If `--username/--password` is unavailable in your `kiwix-serve` build, the add-on starts without auth.
 - For large libraries, consider `/media/kiwix`.
 - `init: false` is required because the upstream Kiwix image already uses s6 as PID 1.
@@ -94,6 +95,7 @@ Notas:
 - O add-on aguarda ate existir pelo menos um arquivo `.zim` em `zim_dir`.
 - Arquivos embutidos em `/opt/kiwix/zims` tambem sao considerados.
 - O add-on gera automaticamente `library.xml` com `kiwix-manage` para a pagina principal listar todos os ZIMs de forma consistente.
+- O add-on detecta automaticamente o caminho do Ingress do Home Assistant e aplica `urlRootLocation` para carregar CSS/assets corretamente.
 - Se `--username/--password` nao estiver disponivel na sua versao do `kiwix-serve`, o add-on inicia sem auth.
 - Para bibliotecas grandes, considere usar `/media/kiwix`.
 - `init: false` e necessario porque a imagem upstream do Kiwix ja usa s6 como PID 1.

@@ -1,5 +1,5 @@
 name: "Kiwix (Offline Wiki / Wiki Offline)"
-version: "1.1.1"
+version: "1.1.2"
 slug: "kiwix_offline"
 description: "Kiwix server for local ZIM files on Home Assistant OS / Servidor Kiwix para arquivos ZIM locais no Home Assistant OS."
 url: "https://github.com/yanmolinos/Kiwix-Addon"
@@ -10,6 +10,7 @@ arch:
 startup: services
 boot: auto
 init: false
+hassio_api: true
 ingress: true
 ingress_port: 8080
 panel_title: "Kiwix"
