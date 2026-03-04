@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.6"
+SCRIPT_VERSION="1.1.7"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -102,11 +102,17 @@ detect_kiwix_manage_bin() {
 }
 
 detect_ingress_root() {
-  # Most reliable fallback on HA: container HOSTNAME is usually addon_<addon_slug>.
+  # In many HA add-ons HOSTNAME is addon_<addon_slug>.
   if [ -n "${HOSTNAME:-}" ]; then
     addon_slug="${HOSTNAME#addon_}"
     if [ "${addon_slug}" != "${HOSTNAME}" ] && [ -n "${addon_slug}" ]; then
       printf '%s' "${addon_slug}"
+      return 0
+    fi
+    # Some environments use HOSTNAME like c1dce1c8-kiwix-offline.
+    # Convert to c1dce1c8_kiwix_offline so it matches Ingress add-on id.
+    if printf '%s' "${HOSTNAME}" | grep -q "-"; then
+      printf '%s' "${HOSTNAME}" | tr '-' '_'
       return 0
     fi
   fi
@@ -200,7 +206,7 @@ else
   echo "[Kiwix] WARNING: kiwix-manage not found."
 fi
 
-set -- "${KIWIX_SERVE_BIN}" --address=0.0.0.0 --port="${PORT}"
+set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
 if [ -n "${INGRESS_ROOT}" ]; then
   echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
   set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
