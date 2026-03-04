@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.25"
+SCRIPT_VERSION="1.1.26"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -151,7 +151,7 @@ http {
   include /etc/nginx/mime.types;
   default_type application/octet-stream;
   sendfile on;
-  log_format ingress '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent" ingress="\$http_x_ingress_path"';
+  log_format ingress '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent" ingress="\$http_x_ingress_path" upstream_location="\$upstream_http_location"';
   access_log /dev/stdout ingress;
 
   server {
@@ -180,8 +180,12 @@ http {
       proxy_set_header X-Forwarded-Proto https;
       proxy_set_header X-Forwarded-Prefix \$ingress_path;
       proxy_pass http://127.0.0.1:${BACKEND_PORT};
+      proxy_redirect ~^viewer#(.+)\$ \$ingress_path/content/\$1;
       proxy_redirect ~^/viewer#(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^viewer\?content=(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^/viewer\?content=(.+)\$ \$ingress_path/content/\$1;
       proxy_redirect ~^https?://[^/]+/viewer#(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^https?://[^/]+/viewer\?content=(.+)\$ \$ingress_path/content/\$1;
       proxy_redirect ~^https?://[^/]+(/api/hassio_ingress/.*)\$ \$1;
       proxy_redirect ~^https?://[^/]+(/.*)\$ \$ingress_path\$1;
       proxy_redirect ~^(/.*)\$ \$ingress_path\$1;
