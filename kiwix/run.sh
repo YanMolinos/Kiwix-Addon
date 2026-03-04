@@ -134,7 +134,7 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
   exit 1
 fi
 
-set -- "${KIWIX_SERVE_BIN}" --address=0.0.0.0 --port="${PORT}"
+set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
