@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.20"
+SCRIPT_VERSION="1.1.21"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -189,10 +189,9 @@ http {
       sub_filter 'content="/' 'content="\$ingress_path/';
       sub_filter "content='/" "content='\$ingress_path/";
       sub_filter 'url(/' 'url(\$ingress_path/';
-      sub_filter ' + "/' ' + "\$ingress_path/';
-      sub_filter " + '/" " + '\$ingress_path/";
-      sub_filter '/viewer#' '/content/';
-      sub_filter '</head>' '<script>(function(){if(location.pathname.endsWith("/viewer")&&location.hash&&location.hash.length>1){location.replace("content/"+location.hash.slice(1));}})();</script></head>';
+      sub_filter '"/viewer#' '"\$ingress_path/content/';
+      sub_filter "'/viewer#" "'\$ingress_path/content/";
+      sub_filter '/viewer#' '\$ingress_path/content/';
     }
   }
 }
