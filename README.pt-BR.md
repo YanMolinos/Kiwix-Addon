@@ -1,5 +1,10 @@
 # Add-on Kiwix para Home Assistant OS
 
+## Status
+
+Este repositorio esta em **Work in Progress (WIP)**.
+O add-on e open source e ainda esta em depuracao ativa, entao algumas funcionalidades podem nao funcionar corretamente ainda.
+
 Este repositorio contem um add-on para Home Assistant OS que publica arquivos `.zim` usando `kiwix-serve`.
 
 ## Estrutura do Repositorio

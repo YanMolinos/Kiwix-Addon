@@ -2,12 +2,14 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.9"
+SCRIPT_VERSION="1.1.10"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
 LIBRARY_FILE="/data/library.xml"
 ZIM_LIST_FILE="/tmp/kiwix-zims.txt"
+NGINX_CONF_FILE="/tmp/nginx.conf"
+BACKEND_PORT="18080"
 
 read_json_string() {
   key="$1"
@@ -101,66 +103,6 @@ detect_kiwix_manage_bin() {
   return 1
 }
 
-detect_ingress_root() {
-  # Most reliable source is Supervisor API.
-  if [ -n "${SUPERVISOR_TOKEN:-}" ] && command -v curl >/dev/null 2>&1; then
-    response="$(curl -fsSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null || true)"
-    if [ -n "${response}" ]; then
-      # Prefer explicit ingress fields when available.
-      ingress_entry="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_entry\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
-      ingress_url="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_url\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
-
-      candidate="${ingress_entry:-}"
-      if [ -z "${candidate}" ]; then
-        candidate="${ingress_url:-}"
-      fi
-
-      # Extract only the ingress path if a full URL is returned.
-      if [ -n "${candidate}" ]; then
-        extracted_path="$(printf '%s' "${candidate}" | sed -n 's#.*\(/api/hassio_ingress/[^/?"]*\).*#\1#p')"
-        if [ -n "${extracted_path}" ]; then
-          printf '%s' "${extracted_path}"
-          return 0
-        fi
-        printf '%s' "${candidate}"
-        return 0
-      fi
-    fi
-  fi
-
-  # Environment fallbacks.
-  for candidate in "${INGRESS_ENTRY:-}" "${INGRESS_PATH:-}" "${HASSIO_INGRESS:-}" "${HASSIO_INGRESS_ENTRY:-}" "${ADDON_INGRESS:-}"; do
-    if [ -n "${candidate}" ]; then
-      printf '%s' "${candidate}"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-normalize_ingress_root() {
-  raw="$1"
-  [ -n "${raw}" ] || return 1
-  [ "${raw}" != "null" ] || return 1
-  raw="${raw%/}"
-
-  case "${raw}" in
-    /api/hassio_ingress/*)
-      printf '%s' "${raw}"
-      ;;
-    api/hassio_ingress/*)
-      printf '/%s' "${raw}"
-      ;;
-    /*)
-      printf '%s' "${raw}"
-      ;;
-    *)
-      printf '/api/hassio_ingress/%s' "${raw}"
-      ;;
-  esac
-}
-
 build_library_xml() {
   kiwix_manage_bin="$1"
   rm -f "${LIBRARY_FILE}"
@@ -185,6 +127,67 @@ library_has_entries() {
   grep -Eq "<(entry|book)\\b" "${LIBRARY_FILE}" 2>/dev/null
 }
 
+detect_nginx_bin() {
+  if command -v nginx >/dev/null 2>&1; then
+    command -v nginx
+    return 0
+  fi
+
+  for candidate in /usr/sbin/nginx /usr/bin/nginx /sbin/nginx /bin/nginx; do
+    if [ -x "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+write_nginx_conf() {
+  cat > "${NGINX_CONF_FILE}" <<EOF
+worker_processes 1;
+error_log /dev/stdout info;
+pid /tmp/nginx.pid;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  sendfile on;
+  access_log /dev/stdout;
+
+  server {
+    listen ${PORT};
+    server_name _;
+
+    location / {
+      set \$ingress_path \$http_x_ingress_path;
+
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      proxy_set_header Host \$host;
+      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto \$scheme;
+      proxy_pass http://127.0.0.1:${BACKEND_PORT};
+      proxy_redirect ~^(/.*)\$ \$ingress_path\$1;
+      proxy_buffering off;
+
+      sub_filter_once off;
+      sub_filter_types text/html text/css application/javascript;
+      sub_filter 'href="/' 'href="\$ingress_path/';
+      sub_filter 'src="/' 'src="\$ingress_path/';
+      sub_filter 'action="/' 'action="\$ingress_path/';
+      sub_filter 'content="/' 'content="\$ingress_path/';
+      sub_filter 'url(/' 'url(\$ingress_path/';
+    }
+  }
+}
+EOF
+}
+
 # Wait for at least one .zim file (mounted or bundled) before starting kiwix-serve.
 # Aguarda pelo menos um arquivo .zim (montado ou embutido) antes de iniciar o kiwix-serve.
 while :; do
@@ -198,8 +201,7 @@ done
 
 KIWIX_SERVE_BIN="$(detect_kiwix_serve_bin || true)"
 KIWIX_MANAGE_BIN="$(detect_kiwix_manage_bin || true)"
-RAW_INGRESS_ROOT="$(detect_ingress_root || true)"
-INGRESS_ROOT="$(normalize_ingress_root "${RAW_INGRESS_ROOT}" || true)"
+NGINX_BIN="$(detect_nginx_bin || true)"
 
 if [ -z "${KIWIX_SERVE_BIN}" ]; then
   echo "[Kiwix] ERROR: kiwix-serve binary not found. PATH=${PATH}"
@@ -210,21 +212,23 @@ if [ -z "${KIWIX_SERVE_BIN}" ]; then
   exit 1
 fi
 
+if [ -z "${NGINX_BIN}" ]; then
+  echo "[Kiwix] ERROR: nginx binary not found. PATH=${PATH}"
+  ls -l /usr/sbin 2>/dev/null || true
+  ls -l /usr/bin 2>/dev/null || true
+  sleep 30
+  exit 1
+fi
+
 echo "[Kiwix] Found kiwix-serve at: ${KIWIX_SERVE_BIN}"
 if [ -n "${KIWIX_MANAGE_BIN}" ]; then
   echo "[Kiwix] Found kiwix-manage at: ${KIWIX_MANAGE_BIN}"
 else
   echo "[Kiwix] WARNING: kiwix-manage not found."
 fi
+echo "[Kiwix] Found nginx at: ${NGINX_BIN}"
 
-set -- "${KIWIX_SERVE_BIN}" --port="${PORT}"
-if [ -n "${INGRESS_ROOT}" ]; then
-  echo "[Kiwix] INGRESS_ROOT: ${INGRESS_ROOT}"
-  set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
-else
-  echo "[Kiwix] WARNING: Ingress root not detected. CSS/assets can break in Home Assistant sidebar."
-  echo "[Kiwix] Debug ingress raw='${RAW_INGRESS_ROOT:-}' hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}' SUPERVISOR_TOKEN_SET='$( [ -n "${SUPERVISOR_TOKEN:-}" ] && echo yes || echo no )'"
-fi
+set -- "${KIWIX_SERVE_BIN}" --port="${BACKEND_PORT}"
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   if "${KIWIX_SERVE_BIN}" --help 2>&1 | grep -q -- "--username"; then
@@ -254,5 +258,18 @@ else
   done < "${ZIM_LIST_FILE}"
 fi
 
-echo "[Kiwix] Starting: $* / Iniciando: $*"
-exec "$@"
+echo "[Kiwix] Starting backend: $* / Iniciando backend: $*"
+"$@" &
+KIWIX_PID="$!"
+
+sleep 1
+if ! kill -0 "${KIWIX_PID}" 2>/dev/null; then
+  echo "[Kiwix] ERROR: kiwix-serve backend exited early."
+  wait "${KIWIX_PID}" || true
+  sleep 30
+  exit 1
+fi
+
+write_nginx_conf
+echo "[Kiwix] Starting ingress proxy: ${NGINX_BIN} -c ${NGINX_CONF_FILE} (listen ${PORT} -> backend ${BACKEND_PORT})"
+exec "${NGINX_BIN}" -c "${NGINX_CONF_FILE}" -g "daemon off;"
