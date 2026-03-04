@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.27"
+SCRIPT_VERSION="1.1.28"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -151,7 +151,7 @@ http {
   include /etc/nginx/mime.types;
   default_type application/octet-stream;
   sendfile on;
-  log_format ingress '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent" ingress="\$http_x_ingress_path" upstream_location="\$upstream_http_location"';
+  log_format ingress '\$remote_addr - \$remote_user [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent" ingress="\$http_x_ingress_path" upstream_location="\$upstream_http_location" sent_location="\$sent_http_location"';
   access_log /dev/stdout ingress;
 
   server {
@@ -184,15 +184,17 @@ http {
       proxy_hide_header Frame-Options;
       proxy_hide_header Content-Security-Policy;
       proxy_hide_header Content-Security-Policy-Report-Only;
-      proxy_redirect ~^viewer#(.+)\$ \$ingress_path/content/\$1;
-      proxy_redirect ~^/viewer#(.+)\$ \$ingress_path/content/\$1;
-      proxy_redirect ~^viewer\?content=(.+)\$ \$ingress_path/content/\$1;
-      proxy_redirect ~^/viewer\?content=(.+)\$ \$ingress_path/content/\$1;
-      proxy_redirect ~^https?://[^/]+/viewer#(.+)\$ \$ingress_path/content/\$1;
-      proxy_redirect ~^https?://[^/]+/viewer\?content=(.+)\$ \$ingress_path/content/\$1;
+      proxy_redirect ~^viewer#(.+)\$ \$http_x_ingress_path/content/\$1;
+      proxy_redirect ~^/viewer#(.+)\$ \$http_x_ingress_path/content/\$1;
+      proxy_redirect ~^viewer\?content=(.+)\$ \$http_x_ingress_path/content/\$1;
+      proxy_redirect ~^/viewer\?content=(.+)\$ \$http_x_ingress_path/content/\$1;
+      proxy_redirect ~^https?://[^/]+/viewer#(.+)\$ \$http_x_ingress_path/content/\$1;
+      proxy_redirect ~^https?://[^/]+/viewer\?content=(.+)\$ \$http_x_ingress_path/content/\$1;
       proxy_redirect ~^https?://[^/]+(/api/hassio_ingress/.*)\$ \$1;
-      proxy_redirect ~^https?://[^/]+(/.*)\$ \$ingress_path\$1;
-      proxy_redirect ~^(/.*)\$ \$ingress_path\$1;
+      proxy_redirect ~^https?://[^/]+(/content/.*)\$ \$http_x_ingress_path\$1;
+      proxy_redirect ~^(/content/.*)\$ \$http_x_ingress_path\$1;
+      proxy_redirect ~^https?://[^/]+(/.*)\$ \$http_x_ingress_path\$1;
+      proxy_redirect ~^(/.*)\$ \$http_x_ingress_path\$1;
       proxy_buffering off;
 
       sub_filter_once off;
