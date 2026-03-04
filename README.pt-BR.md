@@ -43,7 +43,10 @@ Configure `language` nas opcoes do add-on:
 - `en`: carrega apenas arquivos em ingles.
 - `all`: carrega ambos e tambem arquivos `.zim` na raiz.
 
-Se quiser pular a tela "Library OPDS Feed", preencha `default_zim` com o nome exato do arquivo (exemplo: `ifixit_en_all_2025-12.zim`).
+Comportamento da pagina inicial:
+
+- `homepage: library` (padrao): mostra todos os ZIMs na pagina principal.
+- `homepage: default` + `default_zim`: abre direto um ZIM especifico.
 
 Opcional para testes:
 

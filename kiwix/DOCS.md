@@ -20,7 +20,8 @@ Options:
 
 - `zim_dir` (string): directory containing `.zim` files.
 - `language` (string): served language (`all`, `pt`, `en`).
-- `default_zim` (string, optional): exact file name (with `.zim`) to open directly, skipping library page.
+- `homepage` (string, optional): `library` (default) or `default`.
+- `default_zim` (string, optional): exact file name (with `.zim`) used when `homepage=default`.
 - `username` (string, optional): basic auth username if supported by the `kiwix-serve` version.
 - `password` (password, optional): basic auth password if supported by the `kiwix-serve` version.
 
@@ -29,6 +30,7 @@ Configuration example:
 ```yaml
 zim_dir: /share/kiwix
 language: all
+homepage: library
 default_zim: ""
 username: ""
 password: ""
@@ -81,7 +83,8 @@ Opcoes:
 
 - `zim_dir` (string): diretorio com arquivos `.zim`.
 - `language` (string): idioma servido (`all`, `pt`, `en`).
-- `default_zim` (string, opcional): nome exato do arquivo (com `.zim`) para abrir direto, sem a tela de biblioteca.
+- `homepage` (string, opcional): `library` (padrao) ou `default`.
+- `default_zim` (string, opcional): nome exato do arquivo (com `.zim`) usado quando `homepage=default`.
 - `username` (string, opcional): usuario para auth basica, se suportado pela versao do `kiwix-serve`.
 - `password` (password, opcional): senha para auth basica, se suportado pela versao do `kiwix-serve`.
 
@@ -90,6 +93,7 @@ Exemplo de configuracao:
 ```yaml
 zim_dir: /share/kiwix
 language: all
+homepage: library
 default_zim: ""
 username: ""
 password: ""

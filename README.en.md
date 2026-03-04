@@ -43,7 +43,10 @@ Set `language` in add-on options:
 - `en`: loads only English files.
 - `all`: loads both languages and also root-level `.zim` files.
 
-If you want to skip the "Library OPDS Feed" page, set `default_zim` with an exact file name (example: `ifixit_en_all_2025-12.zim`).
+Homepage behavior:
+
+- `homepage: library` (default): shows all ZIMs on the main library page.
+- `homepage: default` + `default_zim`: opens one exact ZIM directly.
 
 Optional for tests:
 

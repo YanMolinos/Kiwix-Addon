@@ -24,6 +24,7 @@ read_json_string() {
 
 ZIM_DIR="$(read_json_string "zim_dir" "/share/kiwix")"
 LANGUAGE="$(read_json_string "language" "all")"
+HOMEPAGE="$(read_json_string "homepage" "library")"
 DEFAULT_ZIM="$(read_json_string "default_zim" "")"
 PORT="8080"
 USERNAME="$(read_json_string "username" "")"
@@ -38,8 +39,18 @@ case "${LANGUAGE}" in
     ;;
 esac
 
+HOMEPAGE="$(printf '%s' "${HOMEPAGE}" | tr '[:upper:]' '[:lower:]')"
+case "${HOMEPAGE}" in
+  library|default) ;;
+  *)
+    echo "[Kiwix] Invalid homepage '${HOMEPAGE}'. Using 'library'. / Homepage invalida '${HOMEPAGE}'. Usando 'library'."
+    HOMEPAGE="library"
+    ;;
+esac
+
 echo "[Kiwix] ZIM_DIR: ${ZIM_DIR}"
 echo "[Kiwix] LANGUAGE: ${LANGUAGE}"
+echo "[Kiwix] HOMEPAGE: ${HOMEPAGE}"
 echo "[Kiwix] DEFAULT_ZIM: ${DEFAULT_ZIM}"
 echo "[Kiwix] PORT: ${PORT}"
 
@@ -151,7 +162,7 @@ while IFS= read -r dir; do
   [ -d "${dir}" ] || continue
   for zim in "${dir}"/*.zim; do
     [ -e "${zim}" ] || continue
-    if [ -n "${DEFAULT_ZIM}" ]; then
+    if [ "${HOMEPAGE}" = "default" ] && [ -n "${DEFAULT_ZIM}" ]; then
       base="$(basename "${zim}")"
       if [ "${base}" = "${DEFAULT_ZIM}" ]; then
         set -- "$@" "${zim}"
@@ -166,7 +177,7 @@ done <<EOF
 $(iter_candidate_dirs)
 EOF
 
-if [ -n "${DEFAULT_ZIM}" ] && [ "${selected_zim_count}" -eq 0 ]; then
+if [ "${HOMEPAGE}" = "default" ] && [ -n "${DEFAULT_ZIM}" ] && [ "${selected_zim_count}" -eq 0 ]; then
   echo "[Kiwix] ERROR: default_zim='${DEFAULT_ZIM}' nao encontrado nos diretorios selecionados."
   sleep 20
   exit 1
