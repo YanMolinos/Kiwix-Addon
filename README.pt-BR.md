@@ -29,6 +29,7 @@ Add-on incluido:
 2. No Home Assistant, abra `Settings -> Add-ons -> Add-on Store -> Repositories`.
 3. Adicione a URL do seu repositorio.
 4. Instale **Kiwix (Offline Wiki / Wiki Offline)**.
+5. Inicie o add-on e abra o Kiwix pela barra lateral do Home Assistant.
 
 ## Onde colocar os arquivos ZIM
 
@@ -50,3 +51,4 @@ Opcional para testes:
 
 - Usa versao fixada da imagem: `ghcr.io/kiwix/kiwix-serve:3.8.2`.
 - Embutir ZIM grande na imagem Docker nao e recomendado (build lento e muito uso de armazenamento).
+- Ingress esta habilitado, entao o Kiwix aparece na barra lateral do Home Assistant.
