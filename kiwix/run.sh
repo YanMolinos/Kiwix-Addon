@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.7"
+SCRIPT_VERSION="1.1.8"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -136,16 +136,16 @@ normalize_ingress_root() {
 
   case "${raw}" in
     /api/hassio_ingress/*)
-      printf '%s/' "${raw}"
+      printf '%s' "${raw}"
       ;;
     api/hassio_ingress/*)
-      printf '/%s/' "${raw}"
+      printf '/%s' "${raw}"
       ;;
     /*)
-      printf '%s/' "${raw}"
+      printf '%s' "${raw}"
       ;;
     *)
-      printf '/api/hassio_ingress/%s/' "${raw}"
+      printf '/api/hassio_ingress/%s' "${raw}"
       ;;
   esac
 }
