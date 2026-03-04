@@ -2,12 +2,13 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.21"
+SCRIPT_VERSION="1.1.22"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
 ZIM_LIST_FILE="/tmp/kiwix-zims.txt"
 NGINX_CONF_FILE="/tmp/nginx.conf"
+INDEX_FILE="/tmp/index.html"
 BACKEND_PORT="18080"
 INGRESS_PREFIX=""
 
@@ -159,6 +160,12 @@ http {
     allow 172.30.32.2;
     deny all;
 
+    location = / {
+      default_type text/html;
+      root /tmp;
+      try_files /index.html =404;
+    }
+
     location / {
       set \$ingress_path "${INGRESS_PREFIX}";
       if (\$http_x_ingress_path != "") {
@@ -189,12 +196,65 @@ http {
       sub_filter 'content="/' 'content="\$ingress_path/';
       sub_filter "content='/" "content='\$ingress_path/";
       sub_filter 'url(/' 'url(\$ingress_path/';
-      sub_filter '"/viewer#' '"\$ingress_path/content/';
-      sub_filter "'/viewer#" "'\$ingress_path/content/";
-      sub_filter '/viewer#' '\$ingress_path/content/';
     }
   }
 }
+EOF
+}
+
+write_index_html() {
+  cat > "${INDEX_FILE}" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiwix Offline Library</title>
+  <style>
+    :root { --bg:#111827; --card:#1f2937; --text:#f9fafb; --muted:#9ca3af; --btn:#0891b2; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background: linear-gradient(135deg,#0f172a,#111827); color: var(--text); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 0 0 18px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 12px; }
+    .card { background: var(--card); border: 1px solid #374151; border-radius: 10px; padding: 14px; }
+    .name { font-size: 14px; word-break: break-word; margin-bottom: 10px; }
+    .btn { display:inline-block; text-decoration:none; background: var(--btn); color:#fff; padding:8px 12px; border-radius:8px; font-weight:700; }
+    .empty { padding: 14px; background:#7f1d1d; border-radius:10px; border:1px solid #991b1b; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Kiwix Offline Library</h1>
+    <p>Click a ZIM to open content directly (without viewer iframe).</p>
+    <div class="grid">
+EOF
+
+  if [ -s "${ZIM_LIST_FILE}" ]; then
+    while IFS= read -r zim; do
+      [ -n "${zim}" ] || continue
+      base="$(basename "${zim}")"
+      book="${base%.zim}"
+      safe_name="$(printf '%s' "${base}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+      cat >> "${INDEX_FILE}" <<EOF
+      <div class="card">
+        <div class="name">${safe_name}</div>
+        <a class="btn" href="random?content=${book}">Open</a>
+      </div>
+EOF
+    done < "${ZIM_LIST_FILE}"
+  else
+    cat >> "${INDEX_FILE}" <<'EOF'
+      <div class="empty">No .zim files found.</div>
+EOF
+  fi
+
+  cat >> "${INDEX_FILE}" <<'EOF'
+    </div>
+  </div>
+</body>
+</html>
 EOF
 }
 
@@ -271,6 +331,8 @@ if [ "${zim_count}" -eq 0 ]; then
   sleep 30
   exit 1
 fi
+
+write_index_html
 
 echo "[Kiwix] Starting backend: $* / Iniciando backend: $*"
 "$@" &
