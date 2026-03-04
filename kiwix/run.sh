@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.8"
+SCRIPT_VERSION="1.1.9"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -102,22 +102,33 @@ detect_kiwix_manage_bin() {
 }
 
 detect_ingress_root() {
-  # In many HA add-ons HOSTNAME is addon_<addon_slug>.
-  if [ -n "${HOSTNAME:-}" ]; then
-    addon_slug="${HOSTNAME#addon_}"
-    if [ "${addon_slug}" != "${HOSTNAME}" ] && [ -n "${addon_slug}" ]; then
-      printf '%s' "${addon_slug}"
-      return 0
-    fi
-    # Some environments use HOSTNAME like c1dce1c8-kiwix-offline.
-    # Convert to c1dce1c8_kiwix_offline so it matches Ingress add-on id.
-    if printf '%s' "${HOSTNAME}" | grep -q "-"; then
-      printf '%s' "${HOSTNAME}" | tr '-' '_'
-      return 0
+  # Most reliable source is Supervisor API.
+  if [ -n "${SUPERVISOR_TOKEN:-}" ] && command -v curl >/dev/null 2>&1; then
+    response="$(curl -fsSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null || true)"
+    if [ -n "${response}" ]; then
+      # Prefer explicit ingress fields when available.
+      ingress_entry="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_entry\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
+      ingress_url="$(printf '%s' "${response}" | tr -d '\r\n' | sed -n "s/.*\"ingress_url\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p")"
+
+      candidate="${ingress_entry:-}"
+      if [ -z "${candidate}" ]; then
+        candidate="${ingress_url:-}"
+      fi
+
+      # Extract only the ingress path if a full URL is returned.
+      if [ -n "${candidate}" ]; then
+        extracted_path="$(printf '%s' "${candidate}" | sed -n 's#.*\(/api/hassio_ingress/[^/?"]*\).*#\1#p')"
+        if [ -n "${extracted_path}" ]; then
+          printf '%s' "${extracted_path}"
+          return 0
+        fi
+        printf '%s' "${candidate}"
+        return 0
+      fi
     fi
   fi
 
-  # Environment fallbacks if HOSTNAME does not follow addon_<slug>.
+  # Environment fallbacks.
   for candidate in "${INGRESS_ENTRY:-}" "${INGRESS_PATH:-}" "${HASSIO_INGRESS:-}" "${HASSIO_INGRESS_ENTRY:-}" "${ADDON_INGRESS:-}"; do
     if [ -n "${candidate}" ]; then
       printf '%s' "${candidate}"
@@ -212,7 +223,7 @@ if [ -n "${INGRESS_ROOT}" ]; then
   set -- "$@" "--urlRootLocation=${INGRESS_ROOT}"
 else
   echo "[Kiwix] WARNING: Ingress root not detected. CSS/assets can break in Home Assistant sidebar."
-  echo "[Kiwix] Debug ingress raw='${RAW_INGRESS_ROOT:-}' hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}'"
+  echo "[Kiwix] Debug ingress raw='${RAW_INGRESS_ROOT:-}' hostname='${HOSTNAME:-}' INGRESS_ENTRY='${INGRESS_ENTRY:-}' INGRESS_PATH='${INGRESS_PATH:-}' HASSIO_INGRESS='${HASSIO_INGRESS:-}' SUPERVISOR_TOKEN_SET='$( [ -n "${SUPERVISOR_TOKEN:-}" ] && echo yes || echo no )'"
 fi
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
