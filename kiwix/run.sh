@@ -2,7 +2,7 @@
 set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
-SCRIPT_VERSION="1.1.11"
+SCRIPT_VERSION="1.1.12"
 
 OPTIONS_FILE="/data/options.json"
 BUNDLED_ZIM_DIR="/opt/kiwix/zims"
@@ -199,6 +199,8 @@ http {
   server {
     listen ${PORT};
     server_name _;
+    allow 172.30.32.2;
+    deny all;
 
     location / {
       set \$ingress_path "${INGRESS_PREFIX}";
